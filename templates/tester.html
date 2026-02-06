@@ -3,119 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Honeypot Simulator | Test Your API</title>
+    <title>Honeypot Simulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Force full height and disable window scroll */
-        body { background-color: #050505; color: #eee; font-family: monospace; height: 100vh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; }
-        .chat-bubble { max-width: 85%; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 0.9rem; word-wrap: break-word; }
-        .scammer { background-color: #3f1818; color: #ff9999; border: 1px solid #772222; align-self: flex-end; margin-left: auto; }
-        .agent { background-color: #1a2e1a; color: #99ff99; border: 1px solid #225522; align-self: flex-start; }
+        /* CSS GRID LAYOUT: Header (50px) | Content (Auto) */
+        body { 
+            display: grid; 
+            grid-template-rows: 50px 1fr; 
+            height: 100vh; 
+            background: #000; 
+            color: #fff; 
+            font-family: monospace; 
+            overflow: hidden; 
+        }
         
-        /* Custom scrollbar for inner containers */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        /* The main workspace is also a grid of 2 columns */
+        #workspace {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            min-height: 0; /* Critical for inner scrolling */
+        }
+
+        /* The chat box structure: Header | History (Scroll) | Input */
+        .panel {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Critical */
+        }
+        
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        /* Aesthetics */
+        .bubble { padding: 8px; border-radius: 6px; margin-bottom: 8px; font-size: 0.9rem; max-width: 90%; }
+        .scammer { background: #331111; color: #ffaaaa; align-self: flex-end; margin-left: auto; }
+        .agent { background: #112211; color: #aaffaa; align-self: flex-start; }
     </style>
 </head>
-<body class="p-4">
+<body>
 
-    <header class="flex-none flex justify-between items-center mb-4 border-b border-gray-800 pb-2 h-12">
-        <h1 class="text-xl font-bold text-yellow-500">🕵️ SCAM SIMULATOR</h1>
-        <div class="text-xs text-gray-400">Session ID: <span id="session-display" class="text-white">...</span></div>
+    <header class="flex items-center justify-between px-6 border-b border-gray-800">
+        <h1 class="font-bold text-yellow-500">🕵️ SCAM SIMULATOR</h1>
+        <div class="text-xs text-gray-500">SESSION: <span id="sess-id" class="text-white">...</span></div>
     </header>
 
-    <div class="flex-1 flex gap-4 min-h-0">
+    <div id="workspace">
         
-        <div class="flex-1 flex flex-col bg-[#111] rounded border border-gray-800 h-full">
-            <h3 class="flex-none p-3 text-sm font-bold text-gray-400 border-b border-gray-800">💬 CONVERSATION</h3>
+        <div class="panel">
+            <div class="p-3 border-b border-gray-800 font-bold text-xs text-gray-500">LIVE CHAT</div>
             
-            <div id="chat-box" class="flex-1 overflow-y-auto p-4 flex flex-col">
-                <div class="text-center text-xs text-gray-600">System Ready.</div>
+            <div id="chat-box" class="scroll-area flex flex-col">
+                <div class="text-center text-xs text-gray-700 mt-4">System Initialized.</div>
             </div>
 
-            <div class="flex-none p-3 border-t border-gray-800 bg-[#0a0a0a]">
+            <div class="p-3 border-t border-gray-800 bg-[#0a0a0a]">
                 <div class="flex gap-2">
-                    <input type="text" id="user-input" placeholder="Type message..." 
-                        class="flex-1 bg-black border border-gray-700 rounded p-2 text-white outline-none focus:border-yellow-500"
-                        onkeypress="handleEnter(event)">
-                    <button onclick="sendMessage()" class="bg-yellow-600 hover:bg-yellow-500 text-black font-bold px-4 rounded">SEND</button>
+                    <input id="msg-input" type="text" placeholder="Type here..." 
+                        class="flex-1 bg-black border border-gray-700 p-2 text-white rounded outline-none focus:border-yellow-600"
+                        onkeypress="if(event.key==='Enter') sendMsg()">
+                    <button onclick="sendMsg()" class="bg-yellow-700 hover:bg-yellow-600 text-black font-bold px-4 rounded">SEND</button>
                 </div>
             </div>
         </div>
 
-        <div class="flex-1 flex flex-col bg-[#111] rounded border border-gray-800 h-full">
-            <h3 class="flex-none p-3 text-sm font-bold text-gray-400 border-b border-gray-800">⚡ LIVE ANALYSIS</h3>
-            
-            <div class="flex-1 overflow-y-auto p-2 bg-black m-2 rounded border border-gray-700 relative">
-                 <button onclick="refreshJson()" class="absolute top-2 right-2 bg-gray-800 text-xs px-2 py-1 rounded text-white border border-gray-600 hover:bg-gray-700 z-10">Refresh</button>
-                <pre id="json-output" class="text-xs text-green-400 p-2 font-mono whitespace-pre-wrap"></pre>
+        <div class="panel">
+            <div class="p-3 border-b border-gray-800 font-bold text-xs text-gray-500 flex justify-between">
+                <span>SYSTEM INTEL</span>
+                <button onclick="refreshJson()" class="text-blue-400 hover:underline">Refresh</button>
+            </div>
+            <div class="scroll-area bg-black">
+                <pre id="json-box" class="text-xs text-green-500 p-2 whitespace-pre-wrap font-mono"></pre>
             </div>
         </div>
     </div>
 
     <script>
-        const sessionId = "test-session-" + Math.floor(Math.random() * 10000);
-        document.getElementById('session-display').innerText = sessionId;
-        let msgCount = 0;
-        setInterval(refreshJson, 3000);
+        const sid = "test-" + Math.floor(Math.random() * 10000);
+        document.getElementById('sess-id').innerText = sid;
 
-        function handleEnter(e) { if (e.key === 'Enter') sendMessage(); }
-
-        async function sendMessage() {
-            const input = document.getElementById('user-input');
+        async function sendMsg() {
+            const input = document.getElementById('msg-input');
             const text = input.value.trim();
             if (!text) return;
+
             addBubble(text, 'scammer');
             input.value = '';
-            
+
             try {
-                const response = await fetch('/scam-check', {
+                // Send to API
+                const res = await fetch('/scam-check', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': 'secret123' },
                     body: JSON.stringify({
-                        sessionId: sessionId,
+                        sessionId: sid,
                         message: { sender: 'scammer', text: text, timestamp: Date.now() },
-                        conversationHistory: [],
-                        metadata: { channel: 'WEB_TEST' }
+                        conversationHistory: []
                     })
                 });
-                const data = await response.json();
+                const data = await res.json();
                 if (data.status === 'success') {
                     setTimeout(() => addBubble(data.reply, 'agent'), 500);
-                    refreshJson(); 
+                    refreshJson();
                 }
-            } catch (err) { console.error(err); }
+            } catch (e) { console.error(e); }
         }
 
         function addBubble(text, role) {
             const box = document.getElementById('chat-box');
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${role}`;
-            bubble.innerHTML = `<strong>${role.toUpperCase()}:</strong> ${text}`;
-            box.appendChild(bubble);
-            box.scrollTop = box.scrollHeight; // Auto scroll to bottom
+            box.innerHTML += `<div class="bubble ${role}"><strong>${role.toUpperCase()}:</strong> ${text}</div>`;
+            box.scrollTop = box.scrollHeight; // Force scroll to bottom
         }
 
         async function refreshJson() {
             try {
-                const res = await fetch(`/api/session/${sessionId}`);
-                const sessionData = await res.json();
-                if (sessionData.error) return;
+                const res = await fetch(`/api/session/${sid}`);
+                const data = await res.json();
+                if (data.error) return;
                 
-                const guviFormat = {
-                    "status": "success",
-                    "data": {
-                        "finalOutput": {
-                            "scamDetected": sessionData.is_scam,
-                            "extractedIntelligence": sessionData.intelligence,
-                            "agentNotes": sessionData.agent_notes
-                        }
-                    }
+                const display = {
+                    scamDetected: data.is_scam,
+                    extractedIntelligence: data.intelligence,
+                    agentNotes: data.agent_notes
                 };
-                document.getElementById('json-output').innerText = JSON.stringify(guviFormat, null, 2);
+                document.getElementById('json-box').innerText = JSON.stringify(display, null, 2);
             } catch (e) {}
         }
+        
+        // Auto-refresh initially
+        setInterval(refreshJson, 3000);
     </script>
 </body>
 </html>
