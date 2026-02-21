@@ -5,13 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agentic Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body { background-color: #09090b; color: #e4e4e7; font-family: monospace; height: 100vh; overflow: hidden; }
-        .cyber-border { border: 1px solid #27272a; }
         .selected-row { background-color: #27272a; border-left: 4px solid #10b981; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        ::-webkit-scrollbar { width: 6px; background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
     </style>
 </head>
 <body class="flex flex-col">
@@ -19,37 +17,34 @@
     <header class="h-14 border-b border-gray-800 bg-black flex items-center justify-between px-6">
         <div class="flex items-center gap-3">
             <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-            <h1 class="font-bold text-lg tracking-wider text-green-500">HONEYPOT COMMAND CENTER</h1>
+            <h1 class="font-bold text-lg tracking-wider text-green-500">HONEYPOT V4</h1>
         </div>
         <div class="flex gap-6 text-sm">
-            <div>TOTAL SESSIONS: <span id="stat-total" class="font-bold text-white">0</span></div>
-            <div>SCAMS BLOCKED: <span id="stat-scams" class="font-bold text-red-500">0</span></div>
-            <div>INTEL CAPTURED: <span id="stat-intel" class="font-bold text-blue-400">0</span></div>
+            <div>TOTAL: <span id="stat-total" class="text-white">0</span></div>
+            <div>SCAMS: <span id="stat-scams" class="text-red-500">0</span></div>
+            <div class="border-l border-gray-700 pl-4">
+                LATENCY: <span id="stat-latency" class="text-yellow-400 font-bold">0ms</span>
+            </div>
         </div>
     </header>
 
     <div class="flex-1 flex min-h-0">
         
         <div class="w-64 border-r border-gray-800 bg-[#0c0c0e] flex flex-col">
-            <div class="p-3 text-xs font-bold text-gray-500 border-b border-gray-800">ACTIVE THREATS</div>
-            <div id="session-list" class="flex-1 overflow-y-auto">
-                </div>
+            <div class="p-3 text-xs font-bold text-gray-500 border-b border-gray-800">ACTIVE SESSIONS</div>
+            <div id="session-list" class="flex-1 overflow-y-auto"></div>
         </div>
 
-        <div class="flex-1 flex flex-col bg-[#09090b] relative">
-            <div id="chat-header" class="h-12 border-b border-gray-800 flex items-center px-4 bg-[#111] justify-between">
-                <span class="text-gray-400 text-sm">Select a session to monitor...</span>
+        <div class="flex-1 flex flex-col bg-[#09090b]">
+            <div id="chat-header" class="h-12 border-b border-gray-800 flex items-center px-4 bg-[#111]">
+                <span class="text-gray-500 text-xs">SELECT A SESSION...</span>
             </div>
-            
-            <div id="chat-feed" class="flex-1 overflow-y-auto p-4 space-y-3">
-                </div>
+            <div id="chat-feed" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
         </div>
 
         <div class="w-80 border-l border-gray-800 bg-[#0c0c0e] flex flex-col">
-            <div class="p-3 text-xs font-bold text-blue-400 border-b border-gray-800">EXTRACTED INTEL</div>
-            <div id="intel-feed" class="flex-1 overflow-y-auto p-4 space-y-3">
-                <p class="text-xs text-gray-600">No session selected.</p>
-            </div>
+            <div class="p-3 text-xs font-bold text-blue-400 border-b border-gray-800">CAPTURED INTEL</div>
+            <div id="intel-feed" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
         </div>
 
     </div>
@@ -57,77 +52,59 @@
     <script>
         let currentSessionId = null;
 
-        // Poll for updates every 2 seconds
-        setInterval(refreshDashboard, 2000);
+        setInterval(refreshDashboard, 1500);
 
         async function refreshDashboard() {
             try {
-                // 1. Get Global Stats & Session List
+                // Get Stats
                 const res = await fetch('/dashboard/stats');
                 const data = await res.json();
                 
-                updateStats(data.summary);
+                document.getElementById('stat-total').innerText = data.summary.total_sessions;
+                document.getElementById('stat-scams').innerText = data.summary.scams_detected;
+                document.getElementById('stat-latency').innerText = data.summary.avg_latency_ms + ' ms';
+
                 renderSidebar(data.active_sessions);
 
-                // 2. If a session is selected, refresh its specific data
                 if (currentSessionId) {
                     const sessionRes = await fetch(`/api/session/${currentSessionId}`);
                     const sessionData = await sessionRes.json();
                     renderChat(sessionData.chat_log);
                     renderIntel(sessionData.intelligence);
                 }
-            } catch (e) { console.error(e); }
-        }
-
-        function updateStats(summary) {
-            document.getElementById('stat-total').innerText = summary.total_sessions;
-            document.getElementById('stat-scams').innerText = summary.scams_detected;
-            document.getElementById('stat-intel').innerText = summary.total_intel;
+            } catch (e) {}
         }
 
         function renderSidebar(sessions) {
             const list = document.getElementById('session-list');
-            // Don't redraw entirely if list length hasn't changed to prevent jitter (simple check)
-            // For a hackathon, innerHTML is fine.
             list.innerHTML = ''; 
-            
             sessions.slice().reverse().forEach(s => {
-                const isSelected = s.id === currentSessionId;
                 const div = document.createElement('div');
-                div.className = `p-3 border-b border-gray-800 cursor-pointer hover:bg-gray-800 ${isSelected ? 'selected-row' : ''}`;
-                div.onclick = () => selectSession(s.id);
-                
-                const statusColor = s.is_scam ? 'text-red-500' : 'text-gray-500';
-                const statusText = s.is_scam ? '⚠️ SCAM' : '● ACTIVE';
+                div.className = `p-3 border-b border-gray-800 cursor-pointer hover:bg-gray-800 ${s.id === currentSessionId ? 'selected-row' : ''}`;
+                div.onclick = () => { currentSessionId = s.id; refreshDashboard(); };
                 
                 div.innerHTML = `
-                    <div class="flex justify-between items-center mb-1">
+                    <div class="flex justify-between mb-1">
                         <span class="font-bold text-xs text-gray-300 truncate w-24">${s.id}</span>
                         <span class="text-[10px] text-gray-500">${s.last_active}</span>
                     </div>
-                    <div class="text-[10px] ${statusColor} font-bold">${statusText} | Msgs: ${s.msg_count}</div>
+                    <div class="text-[10px] ${s.is_scam ? 'text-red-500' : 'text-green-500'}">
+                        ${s.is_scam ? '⚠️ SCAM' : '● WAITING'} | Msgs: ${s.msg_count}
+                    </div>
                 `;
                 list.appendChild(div);
             });
-        }
-
-        function selectSession(sid) {
-            currentSessionId = sid;
-            document.getElementById('chat-header').innerHTML = `<span class="font-bold text-white">MONITORING: ${sid}</span>`;
-            refreshDashboard(); // Trigger immediate update
         }
 
         function renderChat(logs) {
             const feed = document.getElementById('chat-feed');
             feed.innerHTML = '';
             logs.forEach(log => {
-                const align = log.role === 'scammer' ? 'text-right' : 'text-left';
-                const color = log.role === 'scammer' ? 'text-red-300' : (log.role === 'agent' ? 'text-green-300' : 'text-yellow-500');
-                
+                const isUser = log.role === 'scammer';
                 feed.innerHTML += `
-                    <div class="${align} mb-2">
-                        <div class="text-[10px] text-gray-600">${log.role.toUpperCase()} • ${log.timestamp}</div>
-                        <div class="inline-block px-3 py-2 rounded bg-[#1f1f22] ${color} text-sm max-w-[80%] text-left">
+                    <div class="${isUser ? 'text-right' : 'text-left'} mb-2">
+                        <div class="text-[10px] text-gray-600">${log.role.toUpperCase()}</div>
+                        <div class="inline-block px-3 py-2 rounded ${isUser ? 'bg-gray-800 text-gray-200' : 'bg-green-900 text-green-100'} text-sm max-w-[80%] text-left">
                             ${log.message}
                         </div>
                     </div>
@@ -139,22 +116,23 @@
             const feed = document.getElementById('intel-feed');
             feed.innerHTML = '';
             
-            const addCard = (title, items, color) => {
-                if (items && items.length > 0) {
+            // Helper to create cards
+            const createCard = (label, data, color) => {
+                if(data && data.length) {
                     feed.innerHTML += `
-                        <div class="bg-[#18181b] p-3 rounded border border-gray-800">
-                            <div class="text-[10px] font-bold text-gray-500 mb-2 uppercase">${title}</div>
-                            ${items.map(i => `<div class="text-xs ${color} mb-1 font-mono break-all">${i}</div>`).join('')}
+                        <div class="bg-gray-900 p-3 rounded border border-gray-700">
+                            <div class="text-[10px] uppercase font-bold text-gray-500 mb-1">${label}</div>
+                            ${data.map(d => `<div class="text-xs ${color} font-mono break-all">• ${d}</div>`).join('')}
                         </div>
                     `;
                 }
             };
 
-            addCard('Bank Accounts', intel.bankAccounts, 'text-yellow-400');
-            addCard('UPI IDs', intel.upiIds, 'text-purple-400');
-            addCard('Phishing Links', intel.phishingLinks, 'text-red-400');
-            addCard('Phone Numbers', intel.phoneNumbers, 'text-blue-400');
-            addCard('Keywords', intel.suspiciousKeywords, 'text-gray-400');
+            createCard('SCAM TYPE', [intel.scamType], 'text-red-400');
+            createCard('UPI IDs', intel.upiIds, 'text-purple-400');
+            createCard('Bank Accounts', intel.bankAccounts, 'text-yellow-400');
+            createCard('Phones', intel.phoneNumbers, 'text-blue-400');
+            createCard('Links', intel.phishingLinks, 'text-pink-400');
         }
     </script>
 </body>

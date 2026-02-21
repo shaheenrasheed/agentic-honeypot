@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BalmAI | Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { background-color: #000000; color: #ededed; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .glass-panel { background: rgba(24, 24, 27, 0.4); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-card { background: linear-gradient(145deg, rgba(39,39,42,0.4) 0%, rgba(24,24,27,0.4) 100%); border: 1px solid rgba(255, 255, 255, 0.05); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        .nav-active { background: rgba(255,255,255,0.1); color: #fff; }
+        .nav-inactive { color: #a1a1aa; }
+        .nav-inactive:hover { background: rgba(255,255,255,0.05); color: #e4e4e7; }
+    </style>
+</head>
+<body class="flex h-screen w-full selection:bg-emerald-500/30">
+
+    <aside class="w-64 flex-shrink-0 glass-panel border-r border-white/10 flex flex-col h-full z-20">
+        <div class="h-16 flex items-center px-6 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
+                    <i data-lucide="shield-alert" class="w-4 h-4 text-white"></i>
+                </div>
+                <span class="font-bold text-lg tracking-wide text-white">BalmAI</span>
+            </div>
+        </div>
+        
+        <div class="p-4 flex flex-col gap-2 flex-1">
+            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">Platform</div>
+            
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="nav-active flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all text-left">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+            </button>
+            
+            <button onclick="switchTab('chat')" id="btn-chat" class="nav-inactive flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all text-left">
+                <i data-lucide="message-square" class="w-4 h-4"></i> Live Chat
+            </button>
+
+            <button onclick="switchTab('action')" id="btn-action" class="nav-inactive flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all text-left">
+                <i data-lucide="siren" class="w-4 h-4 text-red-400"></i> Action Taken
+            </button>
+        </div>
+
+        <div class="p-4 border-t border-white/10">
+            <button onclick="createNewSession()" class="w-full flex items-center justify-center gap-2 bg-white text-black hover:bg-gray-200 px-4 py-2 rounded-md text-sm font-semibold transition-colors">
+                <i data-lucide="plus" class="w-4 h-4"></i> New Target Session
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full relative overflow-hidden bg-[#09090b]">
+        
+        <header class="h-16 flex items-center px-8 border-b border-white/5 glass-panel z-10 sticky top-0">
+            <div class="flex items-center gap-2 text-sm text-gray-400">
+                <span>Platform</span>
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                <span id="header-title" class="text-white font-medium">Dashboard</span>
+            </div>
+            <div class="ml-auto text-xs font-mono text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                Session: <span id="current-sid-display">Loading...</span>
+            </div>
+        </header>
+
+        <div id="view-dashboard" class="flex-1 overflow-y-auto p-8">
+            <div class="max-w-7xl mx-auto space-y-8">
+                
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight text-white">Command Center</h1>
+                    <p class="text-gray-400 mt-1 text-sm">System status and real-time threat intelligence.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    
+                    <div class="glass-card p-6 rounded-xl border border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-white">Total Messages</span>
+                            <i data-lucide="message-square" class="w-4 h-4 text-gray-500"></i>
+                        </div>
+                        <div id="stat-msgs" class="text-3xl font-bold text-white">0</div>
+                        <div class="text-xs text-gray-400 mt-1">Processed in real-time</div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-xl border border-red-500/20 bg-red-900/10">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-white">Scams Detected</span>
+                            <i data-lucide="shield-alert" class="w-4 h-4 text-red-500"></i>
+                        </div>
+                        <div id="stat-scams" class="text-3xl font-bold text-red-500">0</div>
+                        <div id="stat-scams-pct" class="text-xs text-gray-400 mt-1">0.0% threat detection rate</div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-xl border border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-white">Bank Accounts</span>
+                            <i data-lucide="landmark" class="w-4 h-4 text-emerald-500"></i>
+                        </div>
+                        <div id="stat-bank" class="text-3xl font-bold text-emerald-500">0</div>
+                        <div class="text-xs text-gray-400 mt-1">Accounts extracted</div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-xl border border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-white">UPI IDs</span>
+                            <i data-lucide="smartphone" class="w-4 h-4 text-blue-500"></i>
+                        </div>
+                        <div id="stat-upi" class="text-3xl font-bold text-blue-500">0</div>
+                        <div class="text-xs text-gray-400 mt-1">UPI IDs extracted</div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-xl border border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-white">Phishing Links</span>
+                            <i data-lucide="link" class="w-4 h-4 text-orange-500"></i>
+                        </div>
+                        <div id="stat-links" class="text-3xl font-bold text-orange-500">0</div>
+                        <div class="text-xs text-gray-400 mt-1">Malicious URLs found</div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-xl border border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-white">Phone Numbers</span>
+                            <i data-lucide="phone" class="w-4 h-4 text-purple-500"></i>
+                        </div>
+                        <div id="stat-phones" class="text-3xl font-bold text-purple-500">0</div>
+                        <div class="text-xs text-gray-400 mt-1">Phone numbers extracted</div>
+                    </div>
+
+                    <div class="glass-card p-6 rounded-xl border border-white/5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-white">System Latency</span>
+                            <i data-lucide="cpu" class="w-4 h-4 text-yellow-500"></i>
+                        </div>
+                        <div id="stat-latency" class="text-3xl font-bold text-yellow-500">0ms</div>
+                        <div class="text-xs text-gray-400 mt-1">Average API response time</div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl overflow-hidden border border-white/10">
+                    <div class="p-6 border-b border-white/5 bg-white/5">
+                        <h2 class="text-lg font-semibold text-white">Past Communications</h2>
+                        <p class="text-xs text-gray-400 mt-1">Click any session to view its chat log and actions taken.</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-gray-400 uppercase bg-black/20">
+                                <tr>
+                                    <th class="px-6 py-4">Session ID</th>
+                                    <th class="px-6 py-4">Status</th>
+                                    <th class="px-6 py-4">Scam Type</th>
+                                    <th class="px-6 py-4">Messages</th>
+                                    <th class="px-6 py-4">Last Active</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessions-table-body" class="divide-y divide-white/5">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-chat" class="hidden flex-1 flex overflow-hidden">
+            <div class="flex-1 flex flex-col bg-[#09090b]">
+                <div class="p-4 border-b border-white/5 flex items-center gap-3 bg-black/20">
+                    <div id="chat-status-indicator" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span id="chat-status-title" class="text-sm font-medium text-gray-300">Live Agent Engagement</span>
+                </div>
+                
+                <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-6">
+                    </div>
+
+                <div class="p-4 bg-black/40 border-t border-white/5">
+                    <div class="max-w-4xl mx-auto flex gap-3">
+                        <input id="msg-input" type="text" placeholder="Type scam message here..." 
+                            class="flex-1 bg-white/5 border border-white/10 p-3 text-sm text-white rounded-lg outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                            onkeypress="if(event.key==='Enter') sendMsg()">
+                        <button onclick="sendMsg()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 rounded-lg transition-colors flex items-center justify-center">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-80 border-l border-white/10 glass-panel flex flex-col">
+                <div class="p-6 border-b border-white/5">
+                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Live Risk Probability</div>
+                    <div class="flex items-end justify-between mb-3">
+                        <span id="chat-threat-percent" class="text-4xl font-bold text-white">0%</span>
+                        <span id="chat-threat-label" class="text-sm font-bold text-emerald-500">SAFE</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div id="chat-threat-bar" class="h-full bg-emerald-500 transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <i data-lucide="database" class="w-3 h-3"></i> Extracted Entities
+                    </div>
+                    <div id="intel-feed" class="space-y-4">
+                        <div class="text-sm text-gray-600 italic text-center py-6">No entities extracted yet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-action" class="hidden flex-1 overflow-y-auto p-8">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight text-white">Remediation & Escalation</h1>
+                    <p class="text-gray-400 mt-1 text-sm">Automated reporting to financial institutions and cybercrime cells based on extracted intelligence.</p>
+                </div>
+                
+                <div id="action-content" class="space-y-6 mt-8">
+                    </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        // INDIAN BANK COMPLIANCE EMAILS
+        const BANK_EMAILS = {
+            'sbi': { name: 'State Bank of India', email: 'report.phishing@sbi.co.in' },
+            'hdfc': { name: 'HDFC Bank', email: 'phishing@hdfcbank.com' },
+            'icici': { name: 'ICICI Bank', email: 'antiphishing@icicibank.com' },
+            'axis': { name: 'Axis Bank', email: 'report.phishing@axisbank.com' },
+            'paytm': { name: 'Paytm Payments Bank', email: 'cybercell@paytm.com' },
+            'ybl': { name: 'Yes Bank', email: 'yescare@yesbank.in' },
+            'kotak': { name: 'Kotak Mahindra Bank', email: 'phishing@kotak.com' },
+            'pnb': { name: 'Punjab National Bank', email: 'care@pnb.co.in' },
+            'phonepe': { name: 'PhonePe', email: 'grievance@phonepe.com' },
+            'gpay': { name: 'Google Pay', email: 'support-in@google.com' },
+            'okaxis': { name: 'Axis Bank', email: 'report.phishing@axisbank.com' },
+            'okhdfcbank': { name: 'HDFC Bank', email: 'phishing@hdfcbank.com' },
+            'okicici': { name: 'ICICI Bank', email: 'antiphishing@icicibank.com' },
+            'oksbi': { name: 'State Bank of India', email: 'report.phishing@sbi.co.in' }
+        };
+
+        // 1. Session Management
+        let sid = localStorage.getItem('balmai_sid');
+        if (!sid) {
+            createNewSession();
+        } else {
+            document.getElementById('current-sid-display').innerText = sid;
+        }
+
+        function createNewSession() {
+            sid = "SESS-" + Math.floor(Math.random() * 900000 + 100000);
+            localStorage.setItem('balmai_sid', sid);
+            document.getElementById('current-sid-display').innerText = sid;
+            
+            // FIX: Explicitly clear everything visually
+            document.getElementById('chat-box').innerHTML = ''; 
+            updateThreatLevel(0);
+            document.getElementById('intel-feed').innerHTML = '<div class="text-sm text-gray-600 italic text-center py-6">No entities extracted yet.</div>';
+            document.getElementById('action-content').innerHTML = `
+                <div class="glass-card p-12 rounded-xl text-center border-white/5">
+                    <i data-lucide="shield-check" class="w-16 h-16 text-emerald-500 mx-auto mb-4 opacity-50"></i>
+                    <h3 class="text-xl font-bold text-white mb-2">Monitoring Phase</h3>
+                    <p class="text-gray-400">No malicious intent confirmed yet. Automated reporting is on standby.</p>
+                </div>
+            `;
+            lucide.createIcons();
+            
+            setChatHeaderState(true); 
+            switchTab('chat');
+        }
+
+        function setChatHeaderState(isLive) {
+            const indicator = document.getElementById('chat-status-indicator');
+            const title = document.getElementById('chat-status-title');
+            
+            if (isLive) {
+                indicator.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                title.innerText = "Live Agent Engagement";
+            } else {
+                indicator.className = "w-2 h-2 rounded-full bg-gray-500";
+                title.innerText = "Historical Session Log";
+            }
+        }
+
+        // 2. Tab Switching Logic
+        function switchTab(tab) {
+            const tabs = ['dashboard', 'chat', 'action'];
+            
+            tabs.forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                document.getElementById(`view-${t}`).classList.remove('flex');
+                document.getElementById(`btn-${t}`).className = "nav-inactive flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all text-left";
+            });
+
+            const vTab = document.getElementById(`view-${tab}`);
+            vTab.classList.remove('hidden');
+            if(tab === 'chat') vTab.classList.add('flex');
+            
+            document.getElementById(`btn-${tab}`).className = "nav-active flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all text-left bg-white/10";
+
+            const hTitle = document.getElementById('header-title');
+            if (tab === 'dashboard') hTitle.innerText = "Dashboard";
+            if (tab === 'chat') hTitle.innerText = "Target Chat Console";
+            if (tab === 'action') hTitle.innerText = "Remediation Workflow";
+
+            if (tab === 'chat' || tab === 'action') {
+                loadCurrentChat(); 
+            }
+        }
+
+        // 3. API & Data Loading
+        setInterval(() => {
+            refreshDashboard();
+            if(!document.getElementById('view-chat').classList.contains('hidden') || !document.getElementById('view-action').classList.contains('hidden')) {
+                loadCurrentChat();
+            }
+        }, 3000);
+
+        refreshDashboard();
+
+        async function refreshDashboard() {
+            try {
+                const res = await fetch('/dashboard/stats');
+                const data = await res.json();
+                
+                document.getElementById('stat-msgs').innerText = data.summary.total_messages;
+                document.getElementById('stat-scams').innerText = data.summary.scams_detected;
+                document.getElementById('stat-latency').innerText = data.summary.avg_latency_ms + 'ms';
+                
+                let pct = data.summary.total_messages > 0 ? ((data.summary.scams_detected / data.summary.total_messages) * 100).toFixed(1) : "0.0";
+                document.getElementById('stat-scams-pct').innerText = pct + "% threat detection rate";
+                
+                document.getElementById('stat-bank').innerText = data.summary.total_bank;
+                document.getElementById('stat-upi').innerText = data.summary.total_upi;
+                document.getElementById('stat-links').innerText = data.summary.total_links;
+                document.getElementById('stat-phones').innerText = data.summary.total_phones;
+
+                const tbody = document.getElementById('sessions-table-body');
+                tbody.innerHTML = '';
+                
+                if (data.recent_sessions.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No sessions recorded yet.</td></tr>`;
+                    return;
+                }
+
+                data.recent_sessions.forEach(s => {
+                    const statusBadge = s.is_scam 
+                        ? `<span class="px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-medium">Scam Detected</span>`
+                        : `<span class="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">Monitoring</span>`;
+                    
+                    const threatColor = s.threat_level > 70 ? 'text-red-400' : (s.threat_level > 0 ? 'text-yellow-400' : 'text-emerald-400');
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-white/5 cursor-pointer transition-colors" onclick="openPastSession('${s.id}')">
+                            <td class="px-6 py-4 font-mono font-medium text-white">${s.id}</td>
+                            <td class="px-6 py-4">${statusBadge}</td>
+                            <td class="px-6 py-4 text-gray-400 capitalize">${s.scam_type.replace('_', ' ')}</td>
+                            <td class="px-6 py-4">
+                                <span class="text-white">${s.msg_count}</span>
+                                <span class="ml-2 text-xs ${threatColor}">(${s.threat_level}% Threat)</span>
+                            </td>
+                            <td class="px-6 py-4 text-gray-400">${s.last_active}</td>
+                        </tr>
+                    `;
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function openPastSession(oldSid) {
+            sid = oldSid;
+            localStorage.setItem('balmai_sid', sid);
+            document.getElementById('current-sid-display').innerText = sid;
+            
+            setChatHeaderState(false); 
+            switchTab('chat');
+        }
+
+        async function loadCurrentChat() {
+            try {
+                const res = await fetch(`/api/session/${sid}`);
+                const data = await res.json();
+                
+                const box = document.getElementById('chat-box');
+                box.innerHTML = ''; 
+                
+                if (data.chat_log.length > 0) {
+                    data.chat_log.forEach(log => renderChatBubble(log.role, log.message, box));
+                    box.scrollTop = box.scrollHeight;
+                }
+
+                updateThreatLevel(data.threat_level);
+                
+                if (data.chat_log.length > 0) {
+                    renderIntel(data.intelligence);
+                    renderActionTab(data.intelligence, data.is_scam); 
+                }
+
+            } catch (e) {}
+        }
+
+        // 4. ACTION TAKEN LOGIC
+        function renderActionTab(intel, isScam) {
+            const container = document.getElementById('action-content');
+            
+            if (!isScam) {
+                container.innerHTML = `
+                    <div class="glass-card p-12 rounded-xl text-center border-white/5">
+                        <i data-lucide="shield-check" class="w-16 h-16 text-emerald-500 mx-auto mb-4 opacity-50"></i>
+                        <h3 class="text-xl font-bold text-white mb-2">Monitoring Phase</h3>
+                        <p class="text-gray-400">No malicious intent confirmed yet. Automated reporting is on standby.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            // Create Mock IP
+            let hash = 0;
+            for (let i = 0; i < sid.length; i++) hash = sid.charCodeAt(i) + ((hash << 5) - hash);
+            const mockIP = `103.${Math.abs(hash) % 255}.${Math.abs(hash * 2) % 255}.${Math.abs(hash * 3) % 255}`;
+
+            // Map Banks
+            let targets = [];
+            const checkData = [...intel.upiIds, ...intel.phishingLinks, ...intel.bankAccounts];
+            
+            checkData.forEach(item => {
+                for (let key in BANK_EMAILS) {
+                    if (item.toLowerCase().includes(key)) {
+                        targets.push(BANK_EMAILS[key]);
+                        break;
+                    }
+                }
+            });
+            
+            if (targets.length === 0) targets.push({ name: 'RBI Cyber Escalation', email: 'crpc@rbi.org.in' });
+            targets = targets.filter((v,i,a)=>a.findIndex(t=>(t.email === v.email))===i);
+
+            const linksPayload = intel.phishingLinks.map(l => `<div class="text-red-400">> Malicious URL: ${l}</div>`).join('');
+            const acctPayload = intel.bankAccounts.map(b => `<div>> Fraud A/C: ${b}</div>`).join('');
+            const upiPayload = intel.upiIds.map(u => `<div>> Fraud UPI: ${u}</div>`).join('');
+
+            let targetsHtml = targets.map(t => `
+                <div class="flex flex-col p-4 bg-black/40 rounded-lg border border-white/10 mb-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                                <i data-lucide="building-2" class="w-5 h-5 text-blue-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-bold text-white">${t.name}</div>
+                                <div class="text-xs text-gray-400">To: ${t.email}</div>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] uppercase tracking-wider font-bold rounded-full border border-emerald-500/20 flex items-center gap-1">
+                            <i data-lucide="check-circle" class="w-3 h-3"></i> Dispatched
+                        </span>
+                    </div>
+                    
+                    <div class="bg-black/60 p-3 rounded border border-white/5 font-mono text-[11px] text-gray-300">
+                        <div class="text-gray-500 mb-1 font-sans font-bold text-[10px] uppercase">Payload Data Injected:</div>
+                        <div>> Target IP Traced: ${mockIP}</div>
+                        ${linksPayload}
+                        ${acctPayload}
+                        ${upiPayload}
+                        <div class="mt-2 pt-2 border-t border-white/5 text-blue-400 flex items-center gap-2">
+                            <i data-lucide="paperclip" class="w-3 h-3"></i> chat_transcript_${sid}.pdf
+                            <i data-lucide="paperclip" class="w-3 h-3 ml-2"></i> trap_screenshot_${sid}.jpg
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            const locations = ['Jamtara, Jharkhand', 'Mewat, Haryana', 'Bharatpur, Rajasthan', 'Mathura, Uttar Pradesh'];
+            const randomLocation = locations[Math.abs(hash) % locations.length];
+            const isSyndicate = Math.abs(hash) % 2 === 0; 
+
+            container.innerHTML = `
+                <div class="glass-card p-6 rounded-xl border border-emerald-500/30 relative overflow-hidden bg-emerald-900/10">
+                    <div class="absolute top-0 right-0 p-6 opacity-10">
+                        <i data-lucide="siren" class="w-32 h-32 text-emerald-500"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500 text-black text-sm font-bold">1</span>
+                            <h3 class="text-xl font-bold text-white">National Cybercrime Portal Alert</h3>
+                        </div>
+                        <p class="text-sm text-emerald-100/70 mb-5 ml-10">Immediate API trigger sent to the centralized fraud blocking network. Identified accounts flagged for freeze.</p>
+                        <div class="flex gap-4 ml-10">
+                            <div class="flex items-center gap-2 bg-black/40 border border-emerald-500/30 px-4 py-2 rounded-lg">
+                                <i data-lucide="phone-call" class="w-4 h-4 text-emerald-400"></i>
+                                <span class="text-sm font-bold text-emerald-400">Dialed 1930</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-black/40 border border-emerald-500/30 px-4 py-2 rounded-lg">
+                                <i data-lucide="globe" class="w-4 h-4 text-emerald-400"></i>
+                                <span class="text-sm font-bold text-emerald-400">cybercrime.gov.in</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-xl border border-white/10 mt-6">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white text-sm font-bold">2</span>
+                        <h3 class="text-xl font-bold text-white">Bank Compliance Notification</h3>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-5 ml-10">Automated emails dispatched with transaction metadata, evidence screenshots, and extracted entity IDs to freeze specific accounts.</p>
+                    <div class="ml-10">
+                        ${targetsHtml}
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-xl border border-red-500/20 bg-red-900/10 mt-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="flex items-center justify-center w-7 h-7 rounded-full bg-red-500 text-white text-sm font-bold">3</span>
+                        <h3 class="text-xl font-bold text-red-400">Threat Intelligence & Syndicate Analysis</h3>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 ml-10">
+                        <div class="bg-black/40 p-5 rounded-lg border border-red-500/10">
+                            <div class="text-xs text-red-400/70 uppercase font-bold mb-2 flex items-center gap-2">
+                                <i data-lucide="footprints" class="w-3 h-3"></i> Behavioral Footprint
+                            </div>
+                            <div class="text-sm font-medium text-white">${isSyndicate ? 'Known Syndicate Pattern Matched' : 'Isolated Attack Vector'}</div>
+                        </div>
+                        <div class="bg-black/40 p-5 rounded-lg border border-red-500/10">
+                            <div class="text-xs text-red-400/70 uppercase font-bold mb-2 flex items-center gap-2">
+                                <i data-lucide="map-pin" class="w-3 h-3"></i> Geolocated Node Cluster
+                            </div>
+                            <div class="text-sm font-medium text-white">${isSyndicate ? randomLocation : 'IP Masked / Proxy Detected'}</div>
+                        </div>
+                    </div>
+                    ${isSyndicate ? `
+                    <div class="mt-4 ml-10 text-sm text-red-300 bg-red-500/10 p-4 rounded-lg border border-red-500/20 flex items-start gap-3">
+                        <i data-lucide="network" class="w-5 h-5 mt-0.5 text-red-400 shrink-0"></i>
+                        <p>This actor's linguistic style and extracted identifiers correlate with a group of scammers operating from the same geographical cluster. Data has been tagged for bulk-blocking by local law enforcement.</p>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        async function sendMsg() {
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const box = document.getElementById('chat-box');
+            renderChatBubble('scammer', text, box);
+            input.value = '';
+
+            try {
+                const res = await fetch('/scam-check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: sid,
+                        message: { sender: 'scammer', text: text, timestamp: Date.now() }
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    renderChatBubble('agent', data.reply, box);
+                    loadCurrentChat(); 
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderChatBubble(role, text, container) {
+            const isScammer = role === 'scammer';
+            const isSystem = role === 'system';
+            
+            let html = '';
+            if (isSystem) {
+                html = `
+                <div class="flex justify-center">
+                    <div class="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
+                        <i data-lucide="alert-triangle" class="w-3 h-3"></i> ${text}
+                    </div>
+                </div>`;
+            } else if (isScammer) {
+                html = `
+                <div class="flex justify-end">
+                    <div class="max-w-[80%] rounded-2xl rounded-br-sm px-5 py-3 text-sm bg-white text-black shadow-lg">
+                        ${text}
+                    </div>
+                </div>`;
+            } else {
+                html = `
+                <div class="flex justify-start items-end gap-2">
+                    <div class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center shrink-0 mb-1">
+                        <i data-lucide="bot" class="w-4 h-4 text-white"></i>
+                    </div>
+                    <div class="max-w-[80%] rounded-2xl rounded-bl-sm px-5 py-3 text-sm bg-[#27272a] text-white border border-white/10 shadow-lg">
+                        ${text}
+                    </div>
+                </div>`;
+            }
+            container.innerHTML += html;
+            lucide.createIcons();
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateThreatLevel(level) {
+            const percentStr = level + '%';
+            document.getElementById('chat-threat-percent').innerText = percentStr;
+            const bar = document.getElementById('chat-threat-bar');
+            const label = document.getElementById('chat-threat-label');
+            bar.style.width = percentStr;
+            
+            if (level > 80) {
+                bar.className = "h-full bg-red-500 transition-all duration-500";
+                label.innerText = "CRITICAL"; label.className = "text-sm font-bold text-red-500";
+            } else if (level > 0) {
+                bar.className = "h-full bg-yellow-500 transition-all duration-500";
+                label.innerText = "WARNING"; label.className = "text-sm font-bold text-yellow-500";
+            } else {
+                bar.className = "h-full bg-emerald-500 transition-all duration-500";
+                label.innerText = "SAFE"; label.className = "text-sm font-bold text-emerald-500";
+            }
+        }
+
+        function renderIntel(intel) {
+            const feed = document.getElementById('intel-feed');
+            let html = '';
+            const addSection = (title, items, icon) => {
+                if (items && items.length > 0) {
+                    html += `
+                        <div class="mb-4 bg-black/20 p-3 rounded-lg border border-white/5">
+                            <span class="text-[10px] text-gray-500 uppercase mb-2 flex items-center gap-1.5 font-bold">
+                                <i data-lucide="${icon}" class="w-3 h-3"></i> ${title}
+                            </span>
+                            <div class="space-y-1.5">
+                                ${items.map(i => `<div class="text-sm text-gray-300 font-mono break-all">${i}</div>`).join('')}
+                            </div>
+                        </div>`;
+                }
+            };
+
+            if (intel.scamType !== 'unknown') {
+                html += `<div class="mb-4 bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                            <span class="text-[10px] text-red-500/70 uppercase mb-1 block font-bold">Identified Typology</span>
+                            <div class="text-sm text-red-400 font-bold capitalize">${intel.scamType.replace('_', ' ')}</div>
+                        </div>`;
+            }
+
+            addSection('UPI IDs', intel.upiIds, 'smartphone');
+            addSection('Bank Accounts', intel.bankAccounts, 'landmark');
+            addSection('Phone Numbers', intel.phoneNumbers, 'phone');
+            addSection('Phishing Links', intel.phishingLinks, 'link-2');
+
+            if (html !== '') { feed.innerHTML = html; lucide.createIcons(); }
+        }
+    </script>
+</body>
+</html>
