@@ -13,6 +13,7 @@ class ConversationManager:
                 "start_time": time.time(),
                 "last_active": datetime.now().strftime("%H:%M:%S"),
                 "is_scam": False,
+                "confidence_level": 0.0,
                 "threat_level": 0, 
                 "msg_count": 0,
                 "agent_notes": "Monitoring...",
@@ -24,14 +25,17 @@ class ConversationManager:
             }
         return self.sessions[session_id]
 
-    def log_interaction(self, session_id: str, sender: str, text: str, is_scam_flag: bool = False, confidence: float = 0.0):
+    def log_interaction(self, session_id: str, sender: str, text: str, is_scam_flag: bool = False, confidence: float = 0.0, scam_type: str = "unknown"):
         session = self.get_session(session_id)
         session["msg_count"] += 1
         session["last_active"] = datetime.now().strftime("%H:%M:%S")
         
         if is_scam_flag:
             session["is_scam"] = True
+            session["confidence_level"] = confidence
             session["threat_level"] = int(confidence * 100) if confidence > 0 else 85
+            if scam_type != "unknown":
+                session["intelligence"]["scamType"] = scam_type
 
         session["chat_log"].append({
             "timestamp": datetime.now().strftime("%H:%M:%S"),
@@ -52,18 +56,12 @@ class ConversationManager:
         if intel_found:
             session["threat_level"] = min(99, session["threat_level"] + 10) 
 
-        if "scamType" in new_data and new_data["scamType"] != "unknown":
-            current["scamType"] = new_data["scamType"]
-            session["agent_notes"] = f"Identified as {new_data['scamType']}"
-
     def update_latency(self, ms: float):
         self.latencies.append(ms)
         if len(self.latencies) > 50: self.latencies.pop(0)
 
     def get_dashboard_stats(self):
-        # FIX: Calculate average latency to prevent "undefined" in UI
         avg_latency = sum(self.latencies) / len(self.latencies) if self.latencies else 0
-        
         total_scams = sum(1 for s in self.sessions.values() if s["is_scam"])
         total_messages = sum(s["msg_count"] for s in self.sessions.values())
         
@@ -89,7 +87,7 @@ class ConversationManager:
             "summary": {
                 "total_messages": total_messages,
                 "scams_detected": total_scams,
-                "avg_latency_ms": round(avg_latency, 2), # RESTORED
+                "avg_latency_ms": round(avg_latency, 2), 
                 "total_bank": total_bank,
                 "total_upi": total_upi,
                 "total_links": total_links,
